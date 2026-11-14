@@ -88,7 +88,12 @@ def main():
     
     # loop_forever mantiene el script escuchando indefinidamente
     print("Iniciando bucle de escucha del actuador. Pulsa Ctrl+C para salir.")
-    client.loop_forever()
+    try:
+        client.loop_forever()
+    except KeyboardInterrupt:
+        print("\nPrograma interrumpido por el usuario. Desconectando...")
+        client.loop_stop()
+        client.disconnect()
 
 if __name__ == "__main__":
     main()
