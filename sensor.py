@@ -1,7 +1,7 @@
 import csv
 import paho.mqtt.client as mqtt
 
-class DatoHumedad:
+class DatoSensorGenerico:
 
     def __init__(self, segundo, valor, unidad):
         self.segundo = segundo
@@ -11,6 +11,20 @@ class DatoHumedad:
     def __str__(self):
         return f"Segundo: {self.segundo}, Valor: {self.valor}, Unidad: {self.unidad}"
 
+class DatoSensorAgrupado:
+
+    def __init__(self, paso, segundo, luz, humedad, temperatura, presencia, comentario):
+        self.paso = paso
+        self.segundo = segundo
+        self.luz = luz
+        self.humedad = humedad
+        self.temperatura = temperatura
+        self.presencia = presencia
+        self.comentario = comentario
+    
+    def __str__(self):
+        return f"Paso: {self.paso}, Segundo: {self.segundo}, Luz: {self.luz}, Humedad: {self.humedad}, Temperatura: {self.temperatura}, Presencia: {self.presencia}, Comentario: {self.comentario}"
+
 def leer_datos_csv(ruta, tipo):
     with open(ruta, "r", encoding="utf-8") as fichero:
         lector = csv.DictReader(fichero)
@@ -18,22 +32,31 @@ def leer_datos_csv(ruta, tipo):
         datos_sensor = []
 
         for fila in lector:
-            if tipo == DatoHumedad:
-                dato_humedad = DatoHumedad(int(fila["segundo"]), float(fila["valor"]), fila["unidad"])
-                datos_sensor.append(dato_humedad)
+            if tipo == DatoSensorGenerico:
+                dato_generico = DatoSensorGenerico(int(fila["segundo"]), float(fila["valor"]), fila["unidad"])
+                datos_sensor.append(dato_generico)
+            if tipo == DatoSensorAgrupado:
+                dato_agrupado = DatoSensorAgrupado(int(fila["paso"]), int(fila["segundo"]), int(fila["luz"]), \
+                                float(fila["humedad"]), float(fila["temperatura"]), int(fila["presencia"]), fila["comentario"])
+                datos_sensor.append(dato_agrupado)
         
         return datos_sensor
 
 
 
 def main():
-    datos_humedad = leer_datos_csv("datos_humedad.csv", DatoHumedad)
+    datos_humedad = leer_datos_csv("datos_humedad.csv", DatoSensorGenerico)
 
     for dato in datos_humedad:
         print(dato)
+
+    datos_sensores = leer_datos_csv("datos_sensores.csv", DatoSensorAgrupado)
+    
+    for dato in datos_sensores:
+        print(dato)
     
     # 2. Creación del cliente (compatible con paho-mqtt v1 y v2)
-    try:
+    """try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"pub-intro-{GRUPO}")
     except AttributeError:
         client = mqtt.Client(client_id=f"pub-intro-{GRUPO}")
@@ -70,7 +93,7 @@ def main():
     print("\n Finalizada la prueba. Desconectando...")
     client.loop_stop()
     client.disconnect()
-    print(" Desconectado.")
+    print(" Desconectado.")"""
 
 
 if __name__ == "__main__":
