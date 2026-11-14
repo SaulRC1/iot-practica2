@@ -6,13 +6,17 @@ from config import (
     PUERTO_DEFAULT,
     GRUPO_DEFAULT,
     KEEPALIVE_DEFAULT,
+    ESTADO_PERSIANA_CERRADA,
+    ESTADO_PERSIANA_ABIERTA,
+    ESTADO_BOMBILLA_APAGADA,
+    ESTADO_BOMBILLA_ENCENDIDA,
     topic_actuador_estado
 )
 
 # Estado inicial de los actuadores simulados
 estados_actuadores = {
-    "bombilla": "OFF",
-    "persiana": "CERRADA"
+    "bombilla": ESTADO_BOMBILLA_APAGADA,
+    "persiana": ESTADO_PERSIANA_CERRADA
 }
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -39,11 +43,11 @@ def on_message(client, userdata, msg):
         nuevo_estado = None
         if nombre_actuador == "bombilla":
             comando_upper = payload_recibido.upper()
-            if comando_upper in ["ON", "OFF"]:
+            if comando_upper in [ESTADO_BOMBILLA_ENCENDIDA, ESTADO_BOMBILLA_APAGADA]:
                 nuevo_estado = comando_upper
         elif nombre_actuador == "persiana":
             comando_upper = payload_recibido.upper()
-            if comando_upper in ["ABIERTA", "CERRADA"]:
+            if comando_upper in [ESTADO_PERSIANA_ABIERTA, ESTADO_PERSIANA_CERRADA]:
                 nuevo_estado = comando_upper
                 
         if nuevo_estado:
