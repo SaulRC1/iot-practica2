@@ -18,13 +18,16 @@ import time
 import signal
 import argparse
 import subprocess
+from config import (
+    GRUPO_DEFAULT
+)
 
 DIR_ACTUAL = os.path.dirname(os.path.abspath(__file__))
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Lanzador conjunto del sistema IoT de la Práctica 2")
-    parser.add_argument("grupo", nargs="?", default="g01",
-                        help="Identificador de grupo (por defecto 'g01')")
+    parser.add_argument("grupo", nargs="?", default=GRUPO_DEFAULT,
+                        help=f"Identificador de grupo (por defecto '{GRUPO_DEFAULT}')")
     parser.add_argument("--periodo", type=float, default=2.0,
                         help="Periodo de publicación de los sensores en segundos (por defecto 2.0)")
     parser.add_argument("--sin-monitor", action="store_true",
@@ -49,16 +52,24 @@ def main():
 
     procesos = []
 
-    def lanzar(comando, nombre):
+    def lanzar(comando, nombre, mostrar_salida=False):
         print(f"▶ Lanzando {nombre}...")
-        p = subprocess.Popen(comando, cwd=DIR_ACTUAL)
+        if mostrar_salida:
+            p = subprocess.Popen(comando, cwd=DIR_ACTUAL)
+        else:
+            p = subprocess.Popen(
+            comando,
+            cwd=DIR_ACTUAL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
         procesos.append((nombre, p))
         time.sleep(0.8)
 
     try:
         # 1. Monitor de eventos (si no se excluye)
         if not args.sin_monitor:
-            lanzar([python_exe, "monitor.py", grupo], "Monitor de Eventos")
+            lanzar([python_exe, "-u","monitor.py", grupo], "Monitor de Eventos", mostrar_salida=True)
 
         # 2. Actuadores
         lanzar([python_exe, "actuador.py", "--tipo", "bombilla", "--grupo", grupo], "Actuador Bombilla")
