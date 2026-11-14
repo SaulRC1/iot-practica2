@@ -157,16 +157,22 @@ def main():
         info = client.publish(TOPIC_PUB_SENSOR_HUMEDAD, payload_humedad.encode("utf-8"), qos=0)
         info.wait_for_publish()
 
+        time.sleep(5)
+
         info = client.publish(TOPIC_PUB_SENSOR_LUZ, payload_luz.encode("utf-8"), qos=0)
         info.wait_for_publish()
+
+        time.sleep(5)
 
         info = client.publish(TOPIC_PUB_SENSOR_PRESENCIA, payload_presencia.encode("utf-8"), qos=0)
         info.wait_for_publish()
 
+        time.sleep(5)
+
         info = client.publish(TOPIC_PUB_SENSOR_TEMPERATURA, payload_temperatura.encode("utf-8"), qos=0)
         info.wait_for_publish()
                 
-        time.sleep(2)
+        time.sleep(5)
 
     # Cierre limpio
     print("\n Finalizada la prueba. Desconectando...")
