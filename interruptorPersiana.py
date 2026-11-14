@@ -57,9 +57,9 @@ def on_publish(client, userdata, mid, reason_code=None, properties=None):
 def main():
     # Creación del cliente (compatible con paho-mqtt v1 y v2)
     try:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"pub-sensores-{GRUPO_DEFAULT}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"pub-interruptorPersiana-{GRUPO_DEFAULT}")
     except AttributeError:
-        client = mqtt.Client(client_id=f"pub-sensores-{GRUPO_DEFAULT}")
+        client = mqtt.Client(client_id=f"pub-interruptorPersiana-{GRUPO_DEFAULT}")
     
     client.on_connect = on_connect
     client.on_publish = on_publish
