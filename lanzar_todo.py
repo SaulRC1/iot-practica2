@@ -19,7 +19,9 @@ import signal
 import argparse
 import subprocess
 from config import (
-    GRUPO_DEFAULT
+    GRUPO_DEFAULT,
+    MODO_EJECUCION_SENSORES_SEPARADOS,
+    MODO_EJECUCION_SENSORES_AGRUPADOS
 )
 
 DIR_ACTUAL = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +36,9 @@ def parse_args():
                         help="No iniciar el monitor integrado (útil si se abre en otra ventana)")
     parser.add_argument("--solo-servicios", action="store_true",
                         help="Iniciar solo actuadores y reglas (los sensores los arrancan los alumnos)")
+    parser.add_argument("--modo-sensores", choices=[MODO_EJECUCION_SENSORES_SEPARADOS, MODO_EJECUCION_SENSORES_AGRUPADOS],
+                        default=MODO_EJECUCION_SENSORES_SEPARADOS,
+                        help=f"Modo de ejecución de los sensores ('{MODO_EJECUCION_SENSORES_SEPARADOS}' o '{MODO_EJECUCION_SENSORES_AGRUPADOS}')")
     return parser.parse_args()
 
 def main():
@@ -80,11 +85,14 @@ def main():
 
         # 4. Sensores (si no es modo solo-servicios)
         if not args.solo_servicios:
-            sensores = ["luz", "humedad", "temperatura", "presencia"]
-            for s in sensores:
-                lanzar([python_exe, "sensor.py", "--tipo", s, "--grupo", grupo, "--periodo", periodo],
-                       f"Sensor {s.capitalize()}")
-
+            if args.modo_sensores == MODO_EJECUCION_SENSORES_SEPARADOS:
+                sensores = ["luz", "humedad", "temperatura", "presencia"]
+                for s in sensores:
+                    lanzar([python_exe, "sensor.py", "--tipo", s, "--grupo", grupo, "--periodo", periodo],
+                        f"Sensor {s.capitalize()}")
+            elif args.modo_sensores == MODO_EJECUCION_SENSORES_AGRUPADOS:
+                lanzar([python_exe, "sensor.py", "--modo", MODO_EJECUCION_SENSORES_AGRUPADOS],"Sensores Agrupados")
+                
         print("\n" + "=" * 72)
         print("✅ ¡TODOS LOS MÓDULOS ESTÁN EN EJECUCIÓN Y CONECTADOS A HIVEMQ!")
         print("=" * 72)
