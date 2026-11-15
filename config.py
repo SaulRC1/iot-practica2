@@ -46,6 +46,10 @@ ESTADO_PERSIANA_CERRADA = "CERRADA"
 ESTADO_BOMBILLA_APAGADA = "OFF"
 ESTADO_BOMBILLA_ENCENDIDA = "ON"
 
+# -------- MODOS DE EJECUCIÓN SENSOR.PY -------- #
+MODO_EJECUCION_SENSORES_SEPARADOS = "sensores_separados"
+MODO_EJECUCION_SENSORES_AGRUPADOS = "sensores_agrupados"
+
 # ---- GENERADORES DE TOPICS MQTT ----
 def topic_base(grupo=GRUPO_DEFAULT):
     """Devuelve el prefijo raíz para el grupo."""
