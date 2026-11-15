@@ -7,16 +7,29 @@ from config import (
     PUERTO_DEFAULT,
     GRUPO_DEFAULT,
     KEEPALIVE_DEFAULT,
+    TIPO_ACTUADOR_TOPIC_BOMBILLA,
+    TIPO_ACTUADOR_TOPIC_PERSIANA,
     TIPO_SENSOR_TOPIC_HUMEDAD,
     TIPO_SENSOR_TOPIC_LUZ,
     TIPO_SENSOR_TOPIC_PRESENCIA,
     TIPO_SENSOR_TOPIC_TEMPERATURA,
     topic_base,
+    topic_reglas,
     topic_sensor,
+    topic_actuador_set,
     UMBRAL_LUZ_BAJA,
     UMBRAL_LUZ_ALTA,
     UMBRAL_HUMEDAD_ALTA,
     UMBRAL_HUMEDAD_BAJA,
+    ESTADO_PERSIANA_ABIERTA,
+    ESTADO_PERSIANA_CERRADA,
+    ESTADO_BOMBILLA_APAGADA,
+    ESTADO_BOMBILLA_ENCENDIDA,
+    REGLA_R1,
+    REGLA_R2,
+    REGLA_R3,
+    REGLA_R4,
+    REGLA_R5,
 )
 
 TOPIC_SENSORES_ALL = f"{topic_base(GRUPO_DEFAULT)}/sensor/#"
@@ -27,6 +40,11 @@ TOPIC_PUB_SENSOR_HUMEDAD = topic_sensor(TIPO_SENSOR_TOPIC_HUMEDAD)
 TOPIC_PUB_SENSOR_TEMPERATURA = topic_sensor(TIPO_SENSOR_TOPIC_TEMPERATURA)
 TOPIC_PUB_SENSOR_PRESENCIA = topic_sensor(TIPO_SENSOR_TOPIC_PRESENCIA)
 
+TOPIC_PUB_ACTUADOR_BOMBILLA = topic_actuador_set(TIPO_ACTUADOR_TOPIC_BOMBILLA)
+TOPIC_PUB_ACTUADOR_PERSIANA = topic_actuador_set(TIPO_ACTUADOR_TOPIC_PERSIANA)
+
+TOPIC_PUB_REGLAS = topic_reglas(GRUPO_DEFAULT)
+
 estado_actual_habitacion = {
     "humedad": 0.0,
     "luz": 0.0,
@@ -34,7 +52,17 @@ estado_actual_habitacion = {
     "temperatura": 0.0
 }
 
-def procesar_mensaje(topic, payload):
+cliente_mqtt_global = None
+
+def publicar_estado_en_actuador(cliente, topic, estado):
+    payload_actuador = estado.encode("utf-8")
+    cliente.publish(topic, payload_actuador, qos=0)
+
+def publicar_regla_activada(cliente, regla):
+    payload_actuador = regla.encode("utf-8")
+    cliente.publish(TOPIC_PUB_REGLAS, payload_actuador, qos=0)
+
+def procesar_mensaje(cliente_mqtt, topic, payload):
     datos = json.loads(payload)
     global estado_actual_habitacion
 
@@ -43,10 +71,14 @@ def procesar_mensaje(topic, payload):
 
         if humedad > UMBRAL_HUMEDAD_ALTA:
             # abrir persiana
-            print("abrir persiana")
+            print("Abrir persiana")
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_ABIERTA)
+            publicar_regla_activada(cliente_mqtt, REGLA_R3)
         elif (estado_actual_habitacion["luz"] > UMBRAL_LUZ_ALTA and humedad < UMBRAL_HUMEDAD_BAJA):
             # cerrar persiana
             print("cerrar persiana")
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
+            publicar_regla_activada(cliente_mqtt, REGLA_R4)
 
         estado_actual_habitacion["humedad"] = humedad
     elif topic == TOPIC_PUB_SENSOR_LUZ:
@@ -56,9 +88,13 @@ def procesar_mensaje(topic, payload):
 
         if (presencia_actual == 1.0 and luz < UMBRAL_LUZ_BAJA):
             print("Encender bombilla")
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_ENCENDIDA)
+            publicar_regla_activada(cliente_mqtt, REGLA_R5)
         elif (luz > UMBRAL_LUZ_ALTA and humedad_actual < UMBRAL_HUMEDAD_BAJA):
             # cerrar persiana
             print("cerrar persiana")
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
+            publicar_regla_activada(cliente_mqtt, REGLA_R4)
 
         estado_actual_habitacion["luz"] = luz
     elif topic == TOPIC_PUB_SENSOR_PRESENCIA:
@@ -68,8 +104,13 @@ def procesar_mensaje(topic, payload):
 
         if presencia_actual == 0.0 and presencia == 1.0 and luz_actual < UMBRAL_LUZ_BAJA:
             print("Encender bombilla")
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_ENCENDIDA)
+            publicar_regla_activada(cliente_mqtt, REGLA_R1)
         elif presencia_actual == 1.0 and presencia == 0.0:
             print("Apagar bombilla y cerrar persiana")
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_APAGADA)
+            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
+            publicar_regla_activada(cliente_mqtt, REGLA_R2)
 
         estado_actual_habitacion["presencia"] = presencia
     elif topic == TOPIC_PUB_SENSOR_TEMPERATURA:
@@ -106,9 +147,13 @@ def on_message(client, userdata, msg):
     print(f"   • QoS:    {qos} | Retenido: {retain}")
     print(f"   • Cuerpo: {payload}")
 
-    procesar_mensaje(topic, payload)
+    global cliente_mqtt_global
+
+    procesar_mensaje(cliente_mqtt_global, topic, payload)
 
 def main():
+    global cliente_mqtt_global
+
     # Creación del cliente (compatible con paho-mqtt v1 y v2)
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"motor-reglas-{GRUPO_DEFAULT}")
@@ -126,6 +171,7 @@ def main():
         client.connect(BROKER_DEFAULT, PUERTO_DEFAULT, keepalive=KEEPALIVE_DEFAULT)
             
         time.sleep(1)  # Breve pausa para completar el handshake
+        cliente_mqtt_global = client
         client.loop_forever()
     except KeyboardInterrupt:
         print("\n\n Deteniendo el motor de reglas...")

@@ -22,6 +22,13 @@ UMBRAL_LUZ_ALTA = 600.0      # lux
 UMBRAL_HUMEDAD_ALTA = 70.0   # %
 UMBRAL_HUMEDAD_BAJA = 40.0   # %
 
+# -------------- NOMBRES DE REGLAS -------------- #
+REGLA_R1 = "R1"
+REGLA_R2 = "R2"
+REGLA_R3 = "R3"
+REGLA_R4 = "R4"
+REGLA_R5 = "R5"
+
 # --------- TIPOS DE TOPICS DE SENSORES --------- #
 TIPO_SENSOR_TOPIC_LUZ = "luz"
 TIPO_SENSOR_TOPIC_HUMEDAD = "humedad"
