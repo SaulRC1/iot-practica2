@@ -154,7 +154,7 @@ def on_message(client, userdata, msg):
     qos = msg.qos
     retain = msg.retain
 
-    print("\n📨 MENSAJE RECIBIDO:")
+    print("\n MENSAJE RECIBIDO:")
     print(f"   • Topic:  {topic}")
     print(f"   • QoS:    {qos} | Retenido: {retain}")
     print(f"   • Cuerpo: {payload}")

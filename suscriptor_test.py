@@ -1,5 +1,3 @@
-import sys
-import time
 import paho.mqtt.client as mqtt
 from config import (
     BROKER_DEFAULT,

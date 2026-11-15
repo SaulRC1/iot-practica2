@@ -15,7 +15,6 @@ Uso:
 import os
 import sys
 import time
-import signal
 import argparse
 import subprocess
 from config import (
@@ -77,19 +76,17 @@ def main():
             lanzar([python_exe, "-u","monitor.py", grupo], "Monitor de Eventos", mostrar_salida=True)
 
         # 2. Actuadores
-        lanzar([python_exe, "actuador.py", "--tipo", "bombilla", "--grupo", grupo], "Actuador Bombilla")
-        lanzar([python_exe, "actuador.py", "--tipo", "persiana", "--grupo", grupo], "Actuador Persiana")
+        lanzar([python_exe, "actuador.py"], "Actuador")
 
         # 3. Motor de Reglas
-        lanzar([python_exe, "reglas.py", grupo], "Motor de Reglas")
+        lanzar([python_exe, "reglas.py"], "Motor de Reglas")
 
         # 4. Sensores (si no es modo solo-servicios)
         if not args.solo_servicios:
             if args.modo_sensores == MODO_EJECUCION_SENSORES_SEPARADOS:
                 sensores = ["luz", "humedad", "temperatura", "presencia"]
                 for s in sensores:
-                    lanzar([python_exe, "sensor.py", "--tipo", s, "--grupo", grupo, "--periodo", periodo],
-                        f"Sensor {s.capitalize()}")
+                    lanzar([python_exe, "sensor.py", "--modo", MODO_EJECUCION_SENSORES_SEPARADOS],f"Sensor {s.capitalize()}")
             elif args.modo_sensores == MODO_EJECUCION_SENSORES_AGRUPADOS:
                 lanzar([python_exe, "sensor.py", "--modo", MODO_EJECUCION_SENSORES_AGRUPADOS],"Sensores Agrupados")
                 
