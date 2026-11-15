@@ -3,7 +3,20 @@ import paho.mqtt.client as mqtt
 import time
 import json
 import threading
-from config import BROKER_DEFAULT, PUERTO_DEFAULT, GRUPO_DEFAULT, KEEPALIVE_DEFAULT, TIPO_SENSOR_TOPIC_HUMEDAD, TIPO_SENSOR_TOPIC_LUZ, TIPO_SENSOR_TOPIC_PRESENCIA, TIPO_SENSOR_TOPIC_TEMPERATURA, topic_sensor, topic_todo
+import argparse
+from config import (
+    BROKER_DEFAULT, 
+    PUERTO_DEFAULT, 
+    GRUPO_DEFAULT, 
+    KEEPALIVE_DEFAULT, 
+    TIPO_SENSOR_TOPIC_HUMEDAD, 
+    TIPO_SENSOR_TOPIC_LUZ, 
+    TIPO_SENSOR_TOPIC_PRESENCIA, 
+    TIPO_SENSOR_TOPIC_TEMPERATURA,
+    MODO_EJECUCION_SENSORES_SEPARADOS,
+    MODO_EJECUCION_SENSORES_AGRUPADOS,
+    topic_sensor
+)
 
 class DatoSensorGenerico:
 
@@ -62,18 +75,16 @@ def on_publish(client, userdata, mid, reason_code=None, properties=None):
     """Callback invocado cuando un mensaje ha sido enviado al broker."""
     print(f" Mensaje {mid} entregado al broker")
 
-def construir_payload_sensor(dato_sensor, tipo_dato, tipo_sensor):
-    if tipo_dato == DatoSensorGenerico:
-        mensaje = {
-                    "sensor": tipo_sensor,
-                    "valor": dato_sensor.valor,
-                    "unidad": dato_sensor.unidad,
-                    "timestamp": time.strftime("%H:%M:%S"),
-                    "grupo": GRUPO_DEFAULT
-                }
-        return json.dumps(mensaje, ensure_ascii=False)
-    elif tipo_dato == DatoSensorAgrupado:
-        return None
+def construir_payload_sensor(dato_sensor, tipo_sensor):
+    mensaje = {
+        "sensor": tipo_sensor,
+        "valor": dato_sensor.valor,
+        "unidad": dato_sensor.unidad,
+        "timestamp": time.strftime("%H:%M:%S"),
+        "grupo": GRUPO_DEFAULT
+    }
+    
+    return json.dumps(mensaje, ensure_ascii=False)
 
 def siguiente_indice(indice_actual, indice_max):
     if(indice_actual >= indice_max):
@@ -90,14 +101,118 @@ def escuchar_teclado():
     input("Pulsa ENTER para detener el programa\n")
     parar = True
 
-def main():
+def finalizar_script(cliente_mqtt):
+    # Cierre limpio
+    print("\n Finalizada la prueba. Desconectando...")
+    cliente_mqtt.loop_stop()
+    cliente_mqtt.disconnect()
+    print(" Desconectado.")
+
+def modo_ejecucion_sensores_separados(cliente_mqtt):
     datos_humedad = leer_datos_csv("datos_humedad.csv", DatoSensorGenerico)
     datos_luz = leer_datos_csv("datos_luz.csv", DatoSensorGenerico)
     datos_presencia = leer_datos_csv("datos_presencia.csv", DatoSensorGenerico)
     datos_temperatura = leer_datos_csv("datos_temperatura.csv", DatoSensorGenerico)
+
+    indice_humedad = 0
+    max_indice_humedad = len(datos_humedad) - 1
     
+    indice_luz = 0
+    max_indice_luz = len(datos_luz) - 1
+    
+    indice_presencia = 0
+    max_indice_presencia = len(datos_presencia) - 1
+    
+    indice_temperatura = 0
+    max_indice_temperatura = len(datos_temperatura) - 1
+
+    while not parar:
+        # Obtención de payload de los sensores para publicar en MQTT
+        # -------------------------------------------------------------------------------------
+        dato_humedad = datos_humedad[indice_humedad]
+        payload_humedad = construir_payload_sensor(dato_humedad, "humedad")
+    
+        dato_luz = datos_luz[indice_luz]
+        payload_luz = construir_payload_sensor(dato_luz, "luz")
+    
+        dato_presencia = datos_presencia[indice_presencia]
+        payload_presencia = construir_payload_sensor(dato_presencia, "presencia")
+    
+        dato_temperatura = datos_temperatura[indice_temperatura]
+        payload_temperatura = construir_payload_sensor(dato_temperatura, "temperatura")
+    
+        # Calcular siguientes indices
+        # -------------------------------------------------------------------
+        indice_humedad = siguiente_indice(indice_humedad, max_indice_humedad)
+        indice_luz = siguiente_indice(indice_luz, max_indice_luz)
+        indice_presencia = siguiente_indice(indice_presencia, max_indice_presencia)
+        indice_temperatura = siguiente_indice(indice_temperatura, max_indice_temperatura)
+    
+        # Publicación de datos de sensores en MQTT
+        # --------------------------------------------------------------------------
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_HUMEDAD, payload_humedad.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+    
+        time.sleep(5)
+    
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_LUZ, payload_luz.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+    
+        time.sleep(5)
+    
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_PRESENCIA, payload_presencia.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+    
+        time.sleep(5)
+    
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_TEMPERATURA, payload_temperatura.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+                    
+        time.sleep(5)
+
+def modo_ejecucion_sensores_agrupados(cliente_mqtt):
     datos_sensores = leer_datos_csv("datos_sensores.csv", DatoSensorAgrupado)
-    
+
+    indice_sensores = 0
+    max_indice_sensores = len(datos_sensores) - 1
+
+    while not parar:
+        dato_agrupado = datos_sensores[indice_sensores]
+
+        # Obtención de payload de los sensores para publicar en MQTT
+        # -------------------------------------------------------------------------------------
+        dato_humedad = DatoSensorGenerico(dato_agrupado.segundo, dato_agrupado.humedad, "%")
+        payload_humedad = construir_payload_sensor(dato_humedad, "humedad")
+        
+        dato_luz = DatoSensorGenerico(dato_agrupado.segundo, dato_agrupado.luz, "lux")
+        payload_luz = construir_payload_sensor(dato_luz, "luz")
+        
+        dato_presencia = DatoSensorGenerico(dato_agrupado.segundo, dato_agrupado.presencia, "binario")
+        payload_presencia = construir_payload_sensor(dato_presencia, "presencia")
+        
+        dato_temperatura = DatoSensorGenerico(dato_agrupado.segundo, dato_agrupado.temperatura, "ºC")
+        payload_temperatura = construir_payload_sensor(dato_temperatura, "temperatura")
+
+
+        indice_sensores = siguiente_indice(indice_sensores, max_indice_sensores)
+        
+        # Publicación de datos de sensores en MQTT
+        # --------------------------------------------------------------------------
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_HUMEDAD, payload_humedad.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+        
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_LUZ, payload_luz.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+        
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_PRESENCIA, payload_presencia.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+        
+        info = cliente_mqtt.publish(TOPIC_PUB_SENSOR_TEMPERATURA, payload_temperatura.encode("utf-8"), qos=0)
+        info.wait_for_publish()
+                        
+        time.sleep(5)
+
+def main():
     # Creación del cliente (compatible con paho-mqtt v1 y v2)
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"pub-sensores-{GRUPO_DEFAULT}")
@@ -106,79 +221,27 @@ def main():
 
     client.on_connect = on_connect
     client.on_publish = on_publish
-
-    # Conexión al broker
+    
     print(f"Conectando a {BROKER_DEFAULT}...")
     client.connect(BROKER_DEFAULT, PUERTO_DEFAULT, keepalive=KEEPALIVE_DEFAULT)
-    client.loop_start()  # Inicia un hilo secundario para gestionar la red
+    client.loop_start()
 
     time.sleep(1)  # Breve pausa para completar el handshake
-
-    indice_humedad = 0
-    max_indice_humedad = len(datos_humedad) - 1
-
-    indice_luz = 0
-    max_indice_luz = len(datos_luz) - 1
-
-    indice_presencia = 0
-    max_indice_presencia = len(datos_presencia) - 1
-
-    indice_temperatura = 0
-    max_indice_temperatura = len(datos_temperatura) - 1
 
     # Iniciar hilo para escuchar teclado y parar el script
     hilo = threading.Thread(target=escuchar_teclado, daemon=True)
     hilo.start()
 
-    while not parar:
-        # Obtención de payload de los sensores para publicar en MQTT
-        # -------------------------------------------------------------------------------------
-        dato_humedad = datos_humedad[indice_humedad]
-        payload_humedad = construir_payload_sensor(dato_humedad, DatoSensorGenerico, "humedad")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--modo", type=str, required=True)
+    args = parser.parse_args()
 
-        dato_luz = datos_luz[indice_luz]
-        payload_luz = construir_payload_sensor(dato_luz, DatoSensorGenerico, "luz")
+    modo_ejecucion = args.modo
 
-        dato_presencia = datos_presencia[indice_presencia]
-        payload_presencia = construir_payload_sensor(dato_presencia, DatoSensorGenerico, "presencia")
-
-        dato_temperatura = datos_temperatura[indice_temperatura]
-        payload_temperatura = construir_payload_sensor(dato_temperatura, DatoSensorGenerico, "temperatura")
-
-        # Calcular siguientes indices
-        # -------------------------------------------------------------------
-        indice_humedad = siguiente_indice(indice_humedad, max_indice_humedad)
-        indice_luz = siguiente_indice(indice_luz, max_indice_luz)
-        indice_presencia = siguiente_indice(indice_presencia, max_indice_presencia)
-        indice_temperatura = siguiente_indice(indice_temperatura, max_indice_temperatura)
-
-        # Publicación de datos de sensores en MQTT
-        # --------------------------------------------------------------------------
-        info = client.publish(TOPIC_PUB_SENSOR_HUMEDAD, payload_humedad.encode("utf-8"), qos=0)
-        info.wait_for_publish()
-
-        time.sleep(5)
-
-        info = client.publish(TOPIC_PUB_SENSOR_LUZ, payload_luz.encode("utf-8"), qos=0)
-        info.wait_for_publish()
-
-        time.sleep(5)
-
-        info = client.publish(TOPIC_PUB_SENSOR_PRESENCIA, payload_presencia.encode("utf-8"), qos=0)
-        info.wait_for_publish()
-
-        time.sleep(5)
-
-        info = client.publish(TOPIC_PUB_SENSOR_TEMPERATURA, payload_temperatura.encode("utf-8"), qos=0)
-        info.wait_for_publish()
-                
-        time.sleep(5)
-
-    # Cierre limpio
-    print("\n Finalizada la prueba. Desconectando...")
-    client.loop_stop()
-    client.disconnect()
-    print(" Desconectado.")
+    if modo_ejecucion == MODO_EJECUCION_SENSORES_SEPARADOS:
+        modo_ejecucion_sensores_separados(client)
+    elif modo_ejecucion == MODO_EJECUCION_SENSORES_AGRUPADOS:
+        modo_ejecucion_sensores_agrupados(client)
 
 
 if __name__ == "__main__":
