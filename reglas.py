@@ -63,62 +63,74 @@ def publicar_regla_activada(cliente, regla):
     cliente.publish(TOPIC_PUB_REGLAS, payload_actuador, qos=0)
 
 def procesar_mensaje(cliente_mqtt, topic, payload):
-    datos = json.loads(payload)
     global estado_actual_habitacion
 
-    if topic == TOPIC_PUB_SENSOR_HUMEDAD:
-        humedad = datos["valor"]
+    datos = json.loads(payload)
 
-        if humedad > UMBRAL_HUMEDAD_ALTA:
-            # abrir persiana
-            print("Abrir persiana")
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_ABIERTA)
-            publicar_regla_activada(cliente_mqtt, REGLA_R3)
-        elif (estado_actual_habitacion["luz"] > UMBRAL_LUZ_ALTA and humedad < UMBRAL_HUMEDAD_BAJA):
-            # cerrar persiana
-            print("cerrar persiana")
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
-            publicar_regla_activada(cliente_mqtt, REGLA_R4)
+    campos_esperados = [
+        "sensor",
+        "valor",
+        "unidad",
+        "timestamp",
+        "grupo"
+    ]
 
-        estado_actual_habitacion["humedad"] = humedad
-    elif topic == TOPIC_PUB_SENSOR_LUZ:
-        presencia_actual = estado_actual_habitacion["presencia"]
-        humedad_actual = estado_actual_habitacion["humedad"]
-        luz = datos["valor"]
-
-        if (presencia_actual == 1.0 and luz < UMBRAL_LUZ_BAJA):
-            print("Encender bombilla")
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_ENCENDIDA)
-            publicar_regla_activada(cliente_mqtt, REGLA_R5)
-        elif (luz > UMBRAL_LUZ_ALTA and humedad_actual < UMBRAL_HUMEDAD_BAJA):
-            # cerrar persiana
-            print("cerrar persiana")
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
-            publicar_regla_activada(cliente_mqtt, REGLA_R4)
-
-        estado_actual_habitacion["luz"] = luz
-    elif topic == TOPIC_PUB_SENSOR_PRESENCIA:
-        presencia = datos["valor"]
-        presencia_actual = estado_actual_habitacion["presencia"]
-        luz_actual = estado_actual_habitacion["luz"]
-
-        if presencia_actual == 0.0 and presencia == 1.0 and luz_actual < UMBRAL_LUZ_BAJA:
-            print("Encender bombilla")
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_ENCENDIDA)
-            publicar_regla_activada(cliente_mqtt, REGLA_R1)
-        elif presencia_actual == 1.0 and presencia == 0.0:
-            print("Apagar bombilla y cerrar persiana")
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_APAGADA)
-            publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
-            publicar_regla_activada(cliente_mqtt, REGLA_R2)
-
-        estado_actual_habitacion["presencia"] = presencia
-    elif topic == TOPIC_PUB_SENSOR_TEMPERATURA:
-        temperatura = datos["valor"]
-        estado_actual_habitacion["temperatura"] = temperatura
-
-    print("Estado actual de la habitación:")
-    print(json.dumps(estado_actual_habitacion, indent=4, ensure_ascii=False))
+    if all(campo in datos for campo in campos_esperados):
+        if topic == TOPIC_PUB_SENSOR_HUMEDAD:
+            humedad = datos["valor"]
+        
+            if humedad > UMBRAL_HUMEDAD_ALTA:
+                # abrir persiana
+                print("Abrir persiana")
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_ABIERTA)
+                publicar_regla_activada(cliente_mqtt, REGLA_R3)
+            elif (estado_actual_habitacion["luz"] > UMBRAL_LUZ_ALTA and humedad < UMBRAL_HUMEDAD_BAJA):
+                # cerrar persiana
+                print("cerrar persiana")
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
+                publicar_regla_activada(cliente_mqtt, REGLA_R4)
+        
+            estado_actual_habitacion["humedad"] = humedad
+        elif topic == TOPIC_PUB_SENSOR_LUZ:
+            presencia_actual = estado_actual_habitacion["presencia"]
+            humedad_actual = estado_actual_habitacion["humedad"]
+            luz = datos["valor"]
+        
+            if (presencia_actual == 1.0 and luz < UMBRAL_LUZ_BAJA):
+                print("Encender bombilla")
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_ENCENDIDA)
+                publicar_regla_activada(cliente_mqtt, REGLA_R5)
+            elif (luz > UMBRAL_LUZ_ALTA and humedad_actual < UMBRAL_HUMEDAD_BAJA):
+                # cerrar persiana
+                print("cerrar persiana")
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
+                publicar_regla_activada(cliente_mqtt, REGLA_R4)
+        
+            estado_actual_habitacion["luz"] = luz
+        elif topic == TOPIC_PUB_SENSOR_PRESENCIA:
+            presencia = datos["valor"]
+            presencia_actual = estado_actual_habitacion["presencia"]
+            luz_actual = estado_actual_habitacion["luz"]
+        
+            if presencia_actual == 0.0 and presencia == 1.0 and luz_actual < UMBRAL_LUZ_BAJA:
+                print("Encender bombilla")
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_ENCENDIDA)
+                publicar_regla_activada(cliente_mqtt, REGLA_R1)
+            elif presencia_actual == 1.0 and presencia == 0.0:
+                print("Apagar bombilla y cerrar persiana")
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_BOMBILLA, ESTADO_BOMBILLA_APAGADA)
+                publicar_estado_en_actuador(cliente_mqtt, TOPIC_PUB_ACTUADOR_PERSIANA, ESTADO_PERSIANA_CERRADA)
+                publicar_regla_activada(cliente_mqtt, REGLA_R2)
+        
+            estado_actual_habitacion["presencia"] = presencia
+        elif topic == TOPIC_PUB_SENSOR_TEMPERATURA:
+            temperatura = datos["valor"]
+            estado_actual_habitacion["temperatura"] = temperatura
+        
+            print("Estado actual de la habitación:")
+            print(json.dumps(estado_actual_habitacion, indent=4, ensure_ascii=False))
+    else:
+        return
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
